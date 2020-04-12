@@ -337,3 +337,87 @@ def gen_train_files(exohome, kepler_data_dir, type="traditional", shards=8, work
     logger = tf.get_logger()
     logger.log(1, "Finished processing {} total file shards".format(num_file_shards))
 
+def test_the_crap_one(exohome, kepler_data_dir, problems, type="traditional", shards=8, worker_processes=5):
+    TCE_FILE_DIR = exohome+"/dr24_tce_full.csv"
+    typedir = exohome+"/"+type
+    TFRECORD_DIR = typedir+"/tfrecord"
+    EVAL_FILES = TFRECORD_DIR + "/test*"
+    TRAIN_FILES = TFRECORD_DIR + "/train*"
+    TRAIN_SHARDS = shards
+    WORKER_PROCESSES = worker_processes
+    
+    # Make the output directory if it doesn't already exist.
+    tf.io.gfile.makedirs(TFRECORD_DIR)
+
+    # Read CSV file of Kepler KOIs.
+    tce_table = pd.read_csv(TCE_FILE_DIR, index_col="rowid", comment="#")
+    tce_table["tce_duration"] /= 24  # Convert hours to days.
+    logger = tf.get_logger()
+    logger.log(1, "Read TCE CSV file with {} rows.".format(len(tce_table)))
+
+    # Filter TCE table to allowed labels.
+    allowed_tces = tce_table[_LABEL_COLUMN].apply(lambda l: l in _ALLOWED_LABELS)
+    tce_table = tce_table[allowed_tces]
+    num_tces = len(tce_table)
+    logger = tf.get_logger()
+    logger.log(1, "Filtered to {} TCEs with labels in {}.".format(num_tces, list(_ALLOWED_LABELS)))
+
+    # Randomly shuffle the TCE table.
+    np.random.seed(123)
+    tce_table = tce_table.iloc[np.random.permutation(num_tces)]
+    tce_table = tce_table[tce_table.kepid.isin(problems)]
+    print(tce_table)
+    logger = tf.get_logger()
+    logger.log(1, "Randomly shuffled TCEs.")
+
+    # Partition the TCE table as follows:
+    #   train_tces = 80% of TCEs
+    #   val_tces = 10% of TCEs (for validation during training)
+    #   test_tces = 10% of TCEs (for final evaluation)
+    train_cutoff = int(0.80 * num_tces)
+    val_cutoff = int(0.90 * num_tces)
+    train_tces = tce_table[0:train_cutoff]
+    val_tces = tce_table[train_cutoff:val_cutoff]
+    test_tces = tce_table[val_cutoff:]
+    logger = tf.get_logger()
+    logger.log(1, "Partitioned {} TCEs into training ({}), validation ({}) and test ({})".format(num_tces, len(train_tces), len(val_tces), len(test_tces)))
+
+    # Further split training TCEs into file shards.
+    file_shards = []  # List of (tce_table_shard, file_name).
+    boundaries = np.linspace(0, len(train_tces),
+                             TRAIN_SHARDS + 1).astype(np.int)
+    for i in range(TRAIN_SHARDS):
+      start = boundaries[i]
+      end = boundaries[i + 1]
+      filename = os.path.join(
+          TFRECORD_DIR, "train-{:05d}-of-{:05d}".format(
+              i, TRAIN_SHARDS))
+      file_shards.append((train_tces[start:end], filename))
+
+    # Validation and test sets each have a single shard.
+    file_shards.append((val_tces,
+                        os.path.join(TFRECORD_DIR, "val-00000-of-00001")))
+    file_shards.append((test_tces,
+                        os.path.join(TFRECORD_DIR, "test-00000-of-00001")))
+    num_file_shards = len(file_shards)
+
+    # Launch subprocesses for the file shards.
+    num_processes = min(num_file_shards, WORKER_PROCESSES)
+    logger = tf.get_logger()
+    logger.log(1, "Launching {} subprocesses for {} total file shards".format(num_processes, num_file_shards))
+
+    pool = multiprocessing.Pool(processes=num_processes)
+    async_results = [
+        pool.apply_async(_process_file_shard, (file_shard[0], file_shard[1], kepler_data_dir))
+        for file_shard in file_shards
+    ]
+    pool.close()
+
+    # Instead of pool.join(), we call async_result.get() to ensure any exceptions
+    # raised by the worker processes are also raised here.
+    for async_result in async_results:
+      async_result.get()
+
+    logger = tf.get_logger()
+    logger.log(1, "Finished processing {} total file shards".format(num_file_shards))
+

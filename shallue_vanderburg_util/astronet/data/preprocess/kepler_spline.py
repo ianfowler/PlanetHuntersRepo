@@ -99,6 +99,9 @@ def kepler_spline(time, flux, bkspace=1.5, maxiter=5, outlier_cut=3):
         # catch any exception and raise a more informative error.
         warnings.simplefilter("ignore")
 
+        if time[mask].shape != flux[mask].shape:
+          print("Time {}: {} Flux {}: {} Mask {}: {}".format(time.shape, time, flux.shape, flux, mask.shape, mask))
+          
         # Fit the spline on non-outlier points.
         curve = bspline.iterfit(time[mask], flux[mask], bkspace=bkspace)[0]
 

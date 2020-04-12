@@ -45,7 +45,7 @@ def read_light_curve(kepid, kepler_data_dir):
     IOError: If the light curve files for this Kepler ID cannot be found.
   """
   # Read the Kepler light curve.
-  print(kepler_data_dir)
+  print(kepid)
 
   file_names = kepler_io.kepler_filenames(kepler_data_dir, kepid)
   if not file_names:
