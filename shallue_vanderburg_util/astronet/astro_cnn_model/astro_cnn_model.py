@@ -73,7 +73,7 @@ class AstroCNNModel(astro_model.AstroModel):
       on the input size, kernel size, number of filters, number of layers,
       convolution padding type and pooling.
     """
-    with tf.name_scope(scope):
+    with tf.compat.v1.name_scope(scope):
       net = inputs
       if net.shape.rank == 2:
         net = tf.expand_dims(net, -1)  # [batch, length] -> [batch, length, 1]
@@ -83,7 +83,7 @@ class AstroCNNModel(astro_model.AstroModel):
       for i in range(hparams.cnn_num_blocks):
         num_filters = int(hparams.cnn_initial_num_filters *
                           hparams.cnn_block_filter_factor**i)
-        with tf.name_scope("block_{}".format(i + 1)):
+        with tf.compat.v1.name_scope("block_{}".format(i + 1)):
           for j in range(hparams.cnn_block_size):
             conv_op = tf.keras.layers.Conv1D(
                 filters=num_filters,

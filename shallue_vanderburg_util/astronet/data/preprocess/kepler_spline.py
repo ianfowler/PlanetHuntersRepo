@@ -99,15 +99,14 @@ def kepler_spline(time, flux, bkspace=1.5, maxiter=5, outlier_cut=3):
         # catch any exception and raise a more informative error.
         warnings.simplefilter("ignore")
 
-        if time[mask].shape != flux[mask].shape:
-          print("Time {}: {} Flux {}: {} Mask {}: {}".format(time.shape, time, flux.shape, flux, mask.shape, mask))
+        # print("Time: {} Flux: {} Mask: {}".format(time.shape, flux.shape, mask.shape))
           
         # Fit the spline on non-outlier points.
         curve = bspline.iterfit(time[mask], flux[mask], bkspace=bkspace)[0]
 
       # Evaluate spline at the time points.
       spline = curve.value(time)[0]
-    except (IndexError, TypeError) as e:
+    except (IndexError, TypeError, ValueError) as e:
       raise SplineError(
           "Fitting spline failed with error: '{}'. This might be caused by the "
           "breakpoint spacing being too small, and/or there being insufficient "

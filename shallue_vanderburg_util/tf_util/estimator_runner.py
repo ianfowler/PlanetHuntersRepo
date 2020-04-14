@@ -90,7 +90,7 @@ def continuous_eval(estimator,
     training job has not yet saved a checkpoint or the checkpoint is deleted by
     the time the TPU worker initializes.
   """
-  for _ in tf.contrib.training.checkpoints_iterator(
+  for _ in tf.train.checkpoints_iterator(
       estimator.model_dir, timeout=timeout_secs, timeout_fn=timeout_fn):
     global_step, values = evaluate(estimator, eval_args)
     yield global_step, values

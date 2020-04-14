@@ -38,7 +38,7 @@ def pad_tensor_to_batch_size(tensor, batch_size):
   # paddings is a 2D Tensor with shape [ndims, 2]. Every element is zero except
   # for paddings[0][1], which is the number of values to add along the 0-th
   # dimension (the batch dimension) after the contents of the input tensor.
-  paddings = tf.sparse_to_dense(
+  paddings = tf.compat.v1.sparse_to_dense(
       sparse_indices=[[0, 1]],
       output_shape=[ndims, 2],
       sparse_values=num_pad_examples)
@@ -189,12 +189,12 @@ def build_dataset(file_pattern,
 
     # Create a HashTable mapping label strings to integer ids. Lookup failures
     # will return -2.
-    table_initializer = tf.contrib.lookup.KeyValueTensorInitializer(
+    table_initializer = tf.lookup.KeyValueTensorInitializer(
         keys=list(input_config.label_map.keys()),
         values=list(input_config.label_map.values()),
         key_dtype=tf.string,
         value_dtype=tf.int32)
-    label_to_id = tf.contrib.lookup.HashTable(
+    label_to_id = tf.lookup.StaticHashTable(
         table_initializer, default_value=-2)
 
   def _example_parser(serialized_example):
@@ -202,7 +202,7 @@ def build_dataset(file_pattern,
     # Set specifications for parsing the features.
     data_fields = {}
     for feature_name, feature in input_config.features.items():
-      feature_spec = tf.FixedLenFeature([feature.length], tf.float32)
+      feature_spec = tf.io.FixedLenFeature([feature.length], tf.float32)
       if feature.is_time_series and feature.get("subcomponents"):
         for subcomponent in feature.subcomponents:
           if subcomponent["ndims"] > 1:
@@ -217,18 +217,18 @@ def build_dataset(file_pattern,
         data_fields[feature_name] = feature_spec
 
     if include_labels:
-      data_fields[input_config.label_feature] = tf.FixedLenFeature([],
+      data_fields[input_config.label_feature] = tf.io.FixedLenFeature([],
                                                                    tf.string)
 
     # Parse the features.
-    parsed_features = tf.parse_single_example(
+    parsed_features = tf.io.parse_single_example(
         serialized_example, features=data_fields)
 
     if reverse_time_series_prob > 0:
       # Randomly reverse time series features with probability
       # reverse_time_series_prob.
       should_reverse = tf.less(
-          tf.random_uniform([], 0, 1),
+          tf.random.uniform([], 0, 1),
           reverse_time_series_prob,
           name="should_reverse")
 

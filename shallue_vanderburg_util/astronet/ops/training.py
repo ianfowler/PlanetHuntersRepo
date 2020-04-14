@@ -19,14 +19,15 @@ from __future__ import division
 from __future__ import print_function
 
 import functools
-
+from  tf_agents.utils.eager_utils import create_train_op as cto
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 
 def _polynomial_decay(initial_value, global_step, decay_steps, end_factor,
                       power):
   """Convenience wrapper around tf.train.polynomial_decay."""
-  return tf.train.polynomial_decay(
+  return tf.compat.v1.train.polynomial_decay(
       learning_rate=initial_value,
       global_step=global_step,
       decay_steps=decay_steps,
@@ -78,26 +79,31 @@ def create_optimizer(hparams, global_step, use_tpu=False):
   Raises:
     ValueError: If hparams.optimizer is unrecognized.
   """
+  if use_tpu:
+    return tf.compat.v1.tpu.CrossShardOptimizer(optimizer)
+
   optimizer_name = hparams.optimizer.lower()
   optimizer_params = {}
   if optimizer_name == "momentum":
-    optimizer_class = tf.train.MomentumOptimizer
+    optimizer_class = tf.compat.v1.train.MomentumOptimizer
     optimizer_params["momentum"] = hparams.get("momentum", 0.9)
     optimizer_params["use_nesterov"] = hparams.get("use_nesterov", False)
   elif optimizer_name == "sgd":
-    optimizer_class = tf.train.GradientDescentOptimizer
+    optimizer_class = tf.compat.v1.train.GradientDescentOptimizer
   elif optimizer_name == "adagrad":
-    optimizer_class = tf.train.AdagradOptimizer
+    optimizer_class = tf.compat.v1.train.AdagradOptimizer
   elif optimizer_name == "adam":
-    optimizer_class = tf.train.AdamOptimizer
+    # optimizer_class = tf.compat.v1.train.AdamOptimizer
+    optimizer_class = tf.keras.optimizers.Adam
   elif optimizer_name == "rmsprop":
     optimizer_class = tf.RMSPropOptimizer
   else:
     raise ValueError("Unknown optimizer: {}".format(hparams.optimizer))
 
+
   # Apply weight decay wrapper.
   optimizer_class = (
-      tf.contrib.opt.extend_with_decoupled_weight_decay(optimizer_class))
+      tfa.optimizers.extend_with_decoupled_weight_decay(optimizer_class))
 
   # Create optimizer.
   learning_rate, weight_decay = create_learning_rate_and_weight_decay(
@@ -106,9 +112,6 @@ def create_optimizer(hparams, global_step, use_tpu=False):
       weight_decay=weight_decay,
       learning_rate=learning_rate,
       **optimizer_params)
-
-  if use_tpu:
-    optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
 
   return optimizer
 
@@ -126,12 +129,8 @@ def create_train_op(model, optimizer):
   # Maybe clip gradient norms.
   transform_grads_fn = None
   if model.hparams.get("clip_grad_norm"):
-    transform_grads_fn = tf.contrib.training.clip_gradient_norms_fn(
+    transform_grads_fn = tf_agents.utils.eager_utils.clip_gradient_norms_fn(
         model.hparams.clip_gradient_norm)
 
   # Create train op.
-  return tf.contrib.training.create_train_op(
-      total_loss=model.total_loss,
-      optimizer=optimizer,
-      global_step=model.global_step,
-      transform_grads_fn=transform_grads_fn)
+  return cto(f.total_loss, optimizer, global_step=model.global_step, transform_grads_fn=transform_grads_fn)

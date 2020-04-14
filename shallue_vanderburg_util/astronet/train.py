@@ -129,11 +129,11 @@ def main(_):
 if __name__ == "__main__":
 #   tf.logging.set_verbosity(tf.logging.INFO)
   FLAGS, unparsed = parser.parse_known_args()
-  tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+  tf.compat.v1.app.run(main=main, argv=[sys.argv[0]] + unparsed)
 
 
-def train(exohome, train_steps, type="traditional"):
-    typedir = exohome+"/"+type
+def train(exohome, train_steps, typ="traditional"):
+    typedir = exohome+"/"+typ
     logger = tf.get_logger()
     logger.setLevel(logging.INFO)
     MODEL = "AstroCNNModel"
@@ -164,7 +164,7 @@ def train(exohome, train_steps, type="traditional"):
         mode=tf.estimator.ModeKeys.TRAIN,
         shuffle_values_buffer=SHUFFLE_BUFFER_SIZE,
         repeat=1)
-
+    
     eval_input_fn = estimator_util.create_input_fn(
       file_pattern=EVAL_FILES,
       input_config=config.inputs,

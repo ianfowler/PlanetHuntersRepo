@@ -26,7 +26,7 @@ def _metric_variable(name, shape, dtype):
   return tf.Variable(
       initial_value=tf.zeros(shape, dtype),
       trainable=False,
-      collections=[tf.GraphKeys.LOCAL_VARIABLES, tf.GraphKeys.METRIC_VARIABLES],
+      collections=[tf.compat.v1.GraphKeys.LOCAL_VARIABLES, tf.compat.v1.GraphKeys.METRIC_VARIABLES],
       name=name)
 
 
@@ -53,28 +53,28 @@ def _build_metrics(labels, predictions, weights, batch_losses, output_dim=1):
         tf.greater(predictions, 0.5), tf.int32, name="predicted_labels")
   else:
     predicted_labels = tf.argmax(
-        predictions, 1, name="predicted_labels", output_type=tf.int32)
+        input=predictions, axis=1, name="predicted_labels", output_type=tf.int32)
 
   metrics = {}
-  with tf.name_scope("metrics"):
+  with tf.compat.v1.name_scope("metrics"):
     # Total number of examples.
     num_examples = _metric_variable("num_examples", [], tf.float32)
-    update_num_examples = tf.assign_add(num_examples, tf.reduce_sum(weights))
+    update_num_examples = tf.compat.v1.assign_add(num_examples, tf.reduce_sum(input_tensor=weights))
     metrics["num_examples"] = (num_examples.read_value(), update_num_examples)
 
     # Accuracy metrics.
     num_correct = _metric_variable("num_correct", [], tf.float32)
     is_correct = tf.equal(labels, predicted_labels)
     weighted_is_correct = weights * tf.cast(is_correct, tf.float32)
-    update_num_correct = tf.assign_add(num_correct,
-                                       tf.reduce_sum(weighted_is_correct))
+    update_num_correct = tf.compat.v1.assign_add(num_correct,
+                                       tf.reduce_sum(input_tensor=weighted_is_correct))
     metrics["accuracy/num_correct"] = (num_correct.read_value(),
                                        update_num_correct)
-    accuracy = tf.div(num_correct, num_examples, name="accuracy")
+    accuracy = tf.compat.v1.div(num_correct, num_examples, name="accuracy")
     metrics["accuracy/accuracy"] = (accuracy, tf.no_op())
 
     # Weighted cross-entropy loss.
-    metrics["losses/weighted_cross_entropy"] = tf.metrics.mean(
+    metrics["losses/weighted_cross_entropy"] = tf.compat.v1.metrics.mean(
         batch_losses, weights=weights, name="cross_entropy_loss")
 
     def _count_condition(name, labels_value, predicted_value):
@@ -84,7 +84,7 @@ def _build_metrics(labels, predictions, weights, batch_losses, output_dim=1):
           tf.equal(labels, labels_value),
           tf.equal(predicted_labels, predicted_value))
       weighted_is_equal = weights * tf.cast(is_equal, tf.float32)
-      update_op = tf.assign_add(count, tf.reduce_sum(weighted_is_equal))
+      update_op = tf.compat.v1.assign_add(count, tf.reduce_sum(input_tensor=weighted_is_equal))
       return count.read_value(), update_op
 
     # Confusion matrix metrics.
@@ -99,7 +99,7 @@ def _build_metrics(labels, predictions, weights, batch_losses, output_dim=1):
     # Possibly create AUC metric for binary classification.
     if binary_classification:
       labels = tf.cast(labels, dtype=tf.bool)
-      metrics["auc"] = tf.metrics.auc(
+      metrics["auc"] = tf.compat.v1.metrics.auc(
           labels, predictions, weights=weights, num_thresholds=1000)
 
   return metrics

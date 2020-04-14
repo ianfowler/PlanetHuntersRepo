@@ -208,7 +208,7 @@ class AstroModel(object):
                                     name="pre_logits_concat")
 
     net = pre_logits_concat
-    with tf.name_scope("pre_logits_hidden"):
+    with tf.compat.v1.name_scope("pre_logits_hidden"):
       for i in range(self.hparams.num_pre_logits_hidden_layers):
         dense_op = tf.keras.layers.Dense(
             units=self.hparams.pre_logits_hidden_layer_size,
@@ -290,23 +290,23 @@ class AstroModel(object):
 
     # Compute the weighted mean cross entropy loss.
     weights = self.weights if self.weights is not None else 1.0
-    total_loss = tf.losses.compute_weighted_loss(
+    total_loss = tf.compat.v1.losses.compute_weighted_loss(
         losses=batch_losses,
         weights=weights,
-        reduction=tf.losses.Reduction.MEAN)
+        reduction=tf.compat.v1.losses.Reduction.MEAN)
 
     self.batch_losses = batch_losses
     self.total_loss = total_loss
 
   def build(self):
     """Creates all ops for training, evaluation or inference."""
-    self.global_step = tf.train.get_or_create_global_step()
+    self.global_step = tf.compat.v1.train.get_or_create_global_step()
 
     if self.mode == tf.estimator.ModeKeys.TRAIN:
       # This is implemented as a placeholder Tensor, rather than a constant, to
       # allow its value to be feedable during training (e.g. to disable dropout
       # when performing in-process validation set evaluation).
-      self.is_training = tf.placeholder_with_default(True, [], "is_training")
+      self.is_training = tf.compat.v1.placeholder_with_default(True, [], "is_training")
     else:
       self.is_training = False
 

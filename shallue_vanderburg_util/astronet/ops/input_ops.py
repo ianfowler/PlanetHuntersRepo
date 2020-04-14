@@ -65,7 +65,7 @@ def build_feature_placeholders(config):
   batch_size = None  # Batch size will be dynamically specified.
   features = {"time_series_features": {}, "aux_features": {}}
   for feature_name, feature_spec in config.items():
-    placeholder = tf.placeholder(
+    placeholder = tf.compat.v1.placeholder(
         dtype=tf.float32,
         shape=[batch_size, feature_spec.length],
         name=feature_name)
@@ -85,4 +85,4 @@ def build_labels_placeholder():
     labels: An int64 tf.Placeholder with shape [batch_size].
   """
   batch_size = None  # Batch size will be dynamically specified.
-  return tf.placeholder(dtype=tf.int64, shape=[batch_size], name="labels")
+  return tf.compat.v1.placeholder(dtype=tf.int64, shape=[batch_size], name="labels")
